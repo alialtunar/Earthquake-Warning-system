@@ -1,0 +1,768 @@
+{
+    "nodes": [
+        {
+            "parameters": {
+                "url": "https://api.orhanaydogdu.com.tr/deprem/kandilli/live",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "limit",
+                            "value": "10"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                -224,
+                48
+            ],
+            "id": "352c8881-6ac1-4441-ae58-b960c2e9d5f2",
+            "name": "Fetch Earthquakes"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Gelen deprem verisi\nconst earthquakes = items[0].json.result;\n\n// Kullanıcının dinamik konumu\nconst userCoords = { \n  lat: items[0].json.lat, \n  lon: items[0].json.lon \n};\n\n// Filtreleme kriterleri\nconst MAX_DISTANCE_KM = 70; // km\nconst MIN_MAGNITUDE = 4.0; // Minimum büyüklük\n\n/**\n * İki koordinat arasındaki mesafeyi Haversine formülü ile km cinsinden hesaplar\n * @param {object} coords1 - {lat, lon} formatında ilk koordinat\n * @param {array} coords2 - [lon, lat] formatında ikinci koordinat\n * @returns {number} Mesafe (km)\n */\nfunction getDistanceInKm(coords1, coords2) {\n  const EARTH_RADIUS_KM = 6371;\n\n  const lat1 = coords1.lat;\n  const lon1 = coords1.lon;\n  const lon2 = coords2[0];\n  const lat2 = coords2[1];\n\n  const toRad = (value) => (value * Math.PI) / 180;\n\n  const dLat = toRad(lat2 - lat1);\n  const dLon = toRad(lon2 - lon1);\n\n  const a = Math.sin(dLat / 2) ** 2 +\n            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *\n            Math.sin(dLon / 2) ** 2;\n\n  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));\n\n  return EARTH_RADIUS_KM * c;\n}\n\n// Depremleri filtrele ve mesafe bilgisi ekle\nconst significantEarthquakesNearby = earthquakes\n  .map(eq => {\n    const distance = getDistanceInKm(userCoords, eq.geojson.coordinates);\n    return {\n      ...eq,\n      distance_km: distance\n    };\n  })\n  .filter(eq => eq.mag >= MIN_MAGNITUDE && eq.distance_km <= MAX_DISTANCE_KM);\n\n// n8n'e döndür\nreturn [{\n  json: {\n    filtered_earthquakes: significantEarthquakesNearby\n  }\n}];\n"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                304,
+                176
+            ],
+            "id": "72d634f8-2136-4f50-badc-60e3d280e846",
+            "name": "analyze_data"
+        },
+        {
+            "parameters": {},
+            "type": "n8n-nodes-base.noOp",
+            "typeVersion": 1,
+            "position": [
+                752,
+                432
+            ],
+            "id": "0c41dfb1-897a-40b4-93ec-0f7e8cdd0917",
+            "name": "No Operation, do nothing"
+        },
+        {
+            "parameters": {
+                "chatId": "=928236448",
+                "text": "={{ $json.telegramMessage }}",
+                "additionalFields": {
+                    "appendAttribution": false
+                }
+            },
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1.2,
+            "position": [
+                1760,
+                160
+            ],
+            "id": "7a98710b-2d9c-465c-a7b9-cd8d126b87ad",
+            "name": "Send a text message",
+            "webhookId": "4e7448cf-c8d2-4ec8-823d-5d72a82f3f49",
+            "credentials": {
+                "telegramApi": {
+                    "id": "w09VF0ezKf19h68m",
+                    "name": "Telegram account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "appendOrUpdate",
+                "documentId": {
+                    "__rl": true,
+                    "value": "1P9eMTnI3SYUkQJ-Obno6SXoK_0TioP01n_DKsTIx3gM",
+                    "mode": "list",
+                    "cachedResultName": "konum",
+                    "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1P9eMTnI3SYUkQJ-Obno6SXoK_0TioP01n_DKsTIx3gM/edit?usp=drivesdk"
+                },
+                "sheetName": {
+                    "__rl": true,
+                    "value": "gid=0",
+                    "mode": "list",
+                    "cachedResultName": "Sayfa1",
+                    "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1P9eMTnI3SYUkQJ-Obno6SXoK_0TioP01n_DKsTIx3gM/edit#gid=0"
+                },
+                "columns": {
+                    "mappingMode": "autoMapInputData",
+                    "value": {
+                        "lat": "={{ $json.lat }}",
+                        "lon": "={{ $json.lon }}",
+                        "link": "={{ $json.link }}",
+                        "speed (m/s)": "={{ $json[\"speed (m/s)\"] }}",
+                        "timestamp": "={{ $json.timestamp }}",
+                        "\"uncertainty (m)": "={{ $json[\"uncertainty (m)\"] }}",
+                        "datetime": "={{ $json.datetime }}"
+                    },
+                    "matchingColumns": [
+                        "id"
+                    ],
+                    "schema": [
+                        {
+                            "id": "id",
+                            "displayName": "id",
+                            "required": false,
+                            "defaultMatch": true,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true,
+                            "removed": false
+                        },
+                        {
+                            "id": "lat",
+                            "displayName": "lat",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "lon",
+                            "displayName": "lon",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "link",
+                            "displayName": "link",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "speed (m/s)",
+                            "displayName": "speed (m/s)",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "timestamp",
+                            "displayName": "timestamp",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "\"uncertainty (m)",
+                            "displayName": "\"uncertainty (m)",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "datetime",
+                            "displayName": "datetime",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "uncertainty (m)",
+                            "displayName": "uncertainty (m)",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true,
+                            "removed": false
+                        }
+                    ],
+                    "attemptToConvertTypes": false,
+                    "convertFieldsToString": false
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.googleSheets",
+            "typeVersion": 4.7,
+            "position": [
+                480,
+                -160
+            ],
+            "id": "7fc4ab96-638f-4d79-871e-2ced63bb0617",
+            "name": "Append or update row in sheet",
+            "credentials": {
+                "googleSheetsOAuth2Api": {
+                    "id": "90ccFYPOfESVyhQZ",
+                    "name": "Google Sheets account"
+                }
+            }
+        },
+        {
+            "parameters": {},
+            "type": "n8n-nodes-base.noOp",
+            "typeVersion": 1,
+            "position": [
+                720,
+                -160
+            ],
+            "id": "c77afe0c-bb9e-4944-8797-e6d34efc3108",
+            "name": "No Operation, do nothing1"
+        },
+        {
+            "parameters": {
+                "mode": "combine",
+                "combineBy": "combineByPosition",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 3.2,
+            "position": [
+                80,
+                176
+            ],
+            "id": "8ab69527-5a02-4c18-9374-b294a50ac214",
+            "name": "Merge"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 2
+                    },
+                    "conditions": [
+                        {
+                            "id": "mag-check",
+                            "leftValue": "={{ $json.filtered_earthquakes.length }}",
+                            "rightValue": 0,
+                            "operator": {
+                                "type": "number",
+                                "operation": "gt"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                528,
+                176
+            ],
+            "id": "d65b8f54-196a-44f4-932b-eb8b6cf5796d",
+            "name": "earthquakes-check"
+        },
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 1
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                -544,
+                160
+            ],
+            "id": "04e5a3bf-49ff-4a8a-b59c-70576192a063",
+            "name": "Every Minute"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 2
+                    },
+                    "conditions": [
+                        {
+                            "id": "mag-check",
+                            "leftValue": "={{ $json.filtered_earthquakes.length }}",
+                            "rightValue": 0,
+                            "operator": {
+                                "type": "number",
+                                "operation": "gt"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                1136,
+                64
+            ],
+            "id": "9cc354fa-9001-4f5f-a1bd-d41fafcc0f1f",
+            "name": "earthquakes-check1"
+        },
+        {
+            "parameters": {},
+            "type": "n8n-nodes-base.noOp",
+            "typeVersion": 1,
+            "position": [
+                1360,
+                416
+            ],
+            "id": "a9bbe202-d25c-4439-9b7e-8b1ed7564221",
+            "name": "No Operation, do nothing2"
+        },
+        {
+            "parameters": {
+                "documentId": {
+                    "__rl": true,
+                    "value": "1P9eMTnI3SYUkQJ-Obno6SXoK_0TioP01n_DKsTIx3gM",
+                    "mode": "list",
+                    "cachedResultName": "konum",
+                    "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1P9eMTnI3SYUkQJ-Obno6SXoK_0TioP01n_DKsTIx3gM/edit?usp=drivesdk"
+                },
+                "sheetName": {
+                    "__rl": true,
+                    "value": "gid=0",
+                    "mode": "list",
+                    "cachedResultName": "Sayfa1",
+                    "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1P9eMTnI3SYUkQJ-Obno6SXoK_0TioP01n_DKsTIx3gM/edit#gid=0"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.googleSheets",
+            "typeVersion": 4.7,
+            "position": [
+                -224,
+                320
+            ],
+            "id": "a6c6917a-87ec-4beb-845b-20b570d4bbb1",
+            "name": "Get-my-location",
+            "credentials": {
+                "googleSheetsOAuth2Api": {
+                    "id": "90ccFYPOfESVyhQZ",
+                    "name": "Google Sheets account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "documentId": {
+                    "__rl": true,
+                    "value": "1SKVmHularvwRzhx2TIgdGFDfSCIN9CE7Y_yjmBJxdi0",
+                    "mode": "list",
+                    "cachedResultName": "Deprem Bildirim Logları",
+                    "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SKVmHularvwRzhx2TIgdGFDfSCIN9CE7Y_yjmBJxdi0/edit?usp=drivesdk"
+                },
+                "sheetName": {
+                    "__rl": true,
+                    "value": "gid=0",
+                    "mode": "list",
+                    "cachedResultName": "Sayfa1",
+                    "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SKVmHularvwRzhx2TIgdGFDfSCIN9CE7Y_yjmBJxdi0/edit#gid=0"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.googleSheets",
+            "typeVersion": 4.7,
+            "position": [
+                768,
+                64
+            ],
+            "id": "2c1e0a31-610e-4d41-8c04-ab1b7b138e17",
+            "name": "Get-processed-earthquakes",
+            "credentials": {
+                "googleSheetsOAuth2Api": {
+                    "id": "90ccFYPOfESVyhQZ",
+                    "name": "Google Sheets account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Adım 1: Google Sheet'ten gelen ve daha önce işlenmiş ID'leri alalım.\nconst processedItems = $input.all();\nconst processedIdsSet = new Set(\n  processedItems.map(item => item.json.processed_earthquake_id)\n);\n\n\n// Adım 2: 'earthquakes-check' düğümünden canlı deprem verilerini alalım.\nconst liveEarthquakes = $('earthquakes-check').first().json.filtered_earthquakes || [];\n\n\n// Adım 3: Canlı depremleri, işlenmiş ID listesiyle karşılaştırarak filtreleyelim.\nconst newEarthquakesToNotify = liveEarthquakes.filter(\n  earthquake => !processedIdsSet.has(earthquake.earthquake_id)\n);\n\n\n// Adım 4: Sonucu n8n'e geri döndürelim.\n// Bu kısım değiştirildi. Artık sonuç boş bile olsa her zaman bir çıktı üretecek.\nreturn [{\n  json: {\n    filtered_earthquakes: newEarthquakesToNotify\n  }\n}];"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                960,
+                64
+            ],
+            "id": "c57b9fd9-3c2a-43f4-9872-e0af75a8621f",
+            "name": "filter",
+            "alwaysOutputData": false
+        },
+        {
+            "parameters": {
+                "jsCode": "// n8n Code Node içinde\nconst earthquake = items[0].json.filtered_earthquakes[0];\n\nconst message = `\n⚠️ *Deprem Bilgisi*\n📍 Yer: ${earthquake.title}\n🕒 Tarih: ${earthquake.date_time}\n🌋 Büyüklük: ${earthquake.mag}\n📏 Derinlik: ${earthquake.depth} km\n📍 Konum: [Haritada Gör](http://maps.google.com/maps?q=${earthquake.geojson.coordinates[1]},${earthquake.geojson.coordinates[0]})\n🛣️ Sana uzaklık: ${earthquake.distance_km.toFixed(2)} km\n`;\n\n// n8n'e return\nreturn [\n  {\n    json: {\n      telegramMessage: message\n    }\n  }\n];\n"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1408,
+                48
+            ],
+            "id": "4d0ba12a-a41a-4591-b3b7-72d76073f85f",
+            "name": "formatter"
+        },
+        {
+            "parameters": {
+                "operation": "append",
+                "documentId": {
+                    "__rl": true,
+                    "value": "1SKVmHularvwRzhx2TIgdGFDfSCIN9CE7Y_yjmBJxdi0",
+                    "mode": "list",
+                    "cachedResultName": "Deprem Bildirim Logları",
+                    "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SKVmHularvwRzhx2TIgdGFDfSCIN9CE7Y_yjmBJxdi0/edit?usp=drivesdk"
+                },
+                "sheetName": {
+                    "__rl": true,
+                    "value": "gid=0",
+                    "mode": "list",
+                    "cachedResultName": "Sayfa1",
+                    "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SKVmHularvwRzhx2TIgdGFDfSCIN9CE7Y_yjmBJxdi0/edit#gid=0"
+                },
+                "columns": {
+                    "mappingMode": "defineBelow",
+                    "value": {
+                        "processed_earthquake_id": "={{ $('earthquakes-check').item.json.filtered_earthquakes[0].earthquake_id }}"
+                    },
+                    "matchingColumns": [
+                        "processed_earthquake_id"
+                    ],
+                    "schema": [
+                        {
+                            "id": "processed_earthquake_id",
+                            "displayName": "processed_earthquake_id",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true,
+                            "removed": false
+                        }
+                    ],
+                    "attemptToConvertTypes": false,
+                    "convertFieldsToString": false
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.googleSheets",
+            "typeVersion": 4.7,
+            "position": [
+                1744,
+                -80
+            ],
+            "id": "3f240633-bb17-43a1-a28f-c1a7cf6bdb9a",
+            "name": "Add-earthquake-id",
+            "credentials": {
+                "googleSheetsOAuth2Api": {
+                    "id": "90ccFYPOfESVyhQZ",
+                    "name": "Google Sheets account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "d9f673f3-09fd-48a0-b308-2f406c4c68aa",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                -224,
+                -160
+            ],
+            "id": "1d8a72cc-dcd6-4dbb-b53c-ab0d12f58d89",
+            "name": "location-hook",
+            "webhookId": "d9f673f3-09fd-48a0-b308-2f406c4c68aa"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Webhook'tan gelen string\nconst raw = items[0].json.body;\n\n// Her bir veri bloğunu ayır (iki defa gönderilmiş gibi görünüyor)\nconst blocks = raw.split('[alt]:').filter(b => b.trim() !== '');\n\n// Her bloğu JSON formatına çevir\nconst parsed = blocks.map(block => {\n  const obj = {};\n  block.split('\\n').forEach(line => {\n    const match = line.match(/\\[(.+?)\\]:\\s*(.+)/);\n    if (match) {\n      const key = match[1].trim();\n      let value = match[2].trim();\n      // sayısal değerleri number olarak çevir\n      if (!isNaN(value)) value = Number(value);\n      obj[key] = value;\n    }\n  });\n  return obj;\n});\n\n// Duplicate'leri lat+lon+datetime kombinasyonuna göre filtrele\nconst unique = [];\nconst seen = new Set();\n\nparsed.forEach(item => {\n  const key = `${item.lat}-${item.lon}-${item.datetime}`;\n  if (!seen.has(key)) {\n    seen.add(key);\n    unique.push({ json: item });\n  }\n});\n\nreturn unique;\n"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                0,
+                -160
+            ],
+            "id": "016c9dac-6f93-4deb-9d8b-310dd51ab20e",
+            "name": "format-location"
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "5c9d503a-8666-4af4-a2c2-3af5cb71203e",
+                            "name": "datetime",
+                            "value": "={{ $json.datetime }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "f1163626-b9cc-4492-b301-c20a31d3dd12",
+                            "name": "lat",
+                            "value": "={{ $json.lat }}",
+                            "type": "number"
+                        },
+                        {
+                            "id": "e652c2cc-4a54-4e26-9e9d-99e727350a3e",
+                            "name": "link",
+                            "value": "={{ $json.link }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "67c448f6-82bd-484a-aba7-643fdec22b84",
+                            "name": "lon",
+                            "value": "={{ $json.lon }}",
+                            "type": "number"
+                        },
+                        {
+                            "id": "9bf2b8bd-52bc-4877-b7c5-a4b9e172f4de",
+                            "name": "speed (m/s)",
+                            "value": "={{ $json[\"speed (m/s)\"] }}",
+                            "type": "number"
+                        },
+                        {
+                            "id": "2d090297-bfe8-42f5-9b77-696e3395b86c",
+                            "name": "timestamp",
+                            "value": "={{ $json.timestamp }}",
+                            "type": "number"
+                        },
+                        {
+                            "id": "f728ebd5-0020-4423-89dc-8858a4c25e20",
+                            "name": "uncertainty (m)",
+                            "value": "={{ $json[\"uncertainty (m)\"] }}",
+                            "type": "number"
+                        },
+                        {
+                            "id": "6a71bea5-e729-490e-88a8-9d8547f33c1e",
+                            "name": "id",
+                            "value": 1,
+                            "type": "number"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                240,
+                -160
+            ],
+            "id": "6f553456-6e06-4fa6-abea-e86908d2bc83",
+            "name": "add-id-to-location"
+        }
+    ],
+    "connections": {
+        "Fetch Earthquakes": {
+            "main": [
+                [
+                    {
+                        "node": "Merge",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "analyze_data": {
+            "main": [
+                [
+                    {
+                        "node": "earthquakes-check",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send a text message": {
+            "main": [
+                []
+            ]
+        },
+        "Append or update row in sheet": {
+            "main": [
+                [
+                    {
+                        "node": "No Operation, do nothing1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Merge": {
+            "main": [
+                [
+                    {
+                        "node": "analyze_data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "earthquakes-check": {
+            "main": [
+                [
+                    {
+                        "node": "Get-processed-earthquakes",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "No Operation, do nothing",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Every Minute": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Earthquakes",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Get-my-location",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "earthquakes-check1": {
+            "main": [
+                [
+                    {
+                        "node": "formatter",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "No Operation, do nothing2",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get-my-location": {
+            "main": [
+                [
+                    {
+                        "node": "Merge",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Get-processed-earthquakes": {
+            "main": [
+                [
+                    {
+                        "node": "filter",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "filter": {
+            "main": [
+                [
+                    {
+                        "node": "earthquakes-check1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "formatter": {
+            "main": [
+                [
+                    {
+                        "node": "Send a text message",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Add-earthquake-id",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "location-hook": {
+            "main": [
+                [
+                    {
+                        "node": "format-location",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "format-location": {
+            "main": [
+                [
+                    {
+                        "node": "add-id-to-location",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "add-id-to-location": {
+            "main": [
+                [
+                    {
+                        "node": "Append or update row in sheet",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "6e0dff20044858e189f4d0d9b5e1bcf4f58e4e9e3fb4bf2c0d61af4891fa3dd1"
+    }
+}
